@@ -1,6 +1,6 @@
 Nome do Grupo:
 - Leandro Souza da Silva - 211031109
-- João Prata - 000000000
+- João Victor Prata - 202028857
 - Rafael Bonach - 221008365
 
 Como rodar:
