@@ -2,7 +2,7 @@
 #include<stdlib.h>
 #include<ctype.h>
 
-const char *tabela_intrucoes[14][2] = {
+const char *tabela_instrucoes[14][2] = {
     {"ADD", "01"},
     {"SUB", "02"},
     {"MUL", "03"},
@@ -19,7 +19,8 @@ const char *tabela_intrucoes[14][2] = {
     {"STOP", "14"}
 };
 
-// Primeira parte do programa(Algoritmo de uma passagem)
+
+// Primeira parte do programa (Algoritmo de uma passagem):
 
 void primeiraPassagem(char *arquivo_pre){
     char *linhas_arquivo[100]; // Máximo de 100 linhas no arquivo
@@ -68,7 +69,7 @@ void primeiraPassagem(char *arquivo_pre){
 
         for(int i = 0; linha_atual[i] != '\0'; i++){
             char c = linha_atual[i];
-        
+
             // Encontra comentário
             if(c == ';'){
                 comentario = (char *)malloc(sizeof(char) * (strlen(linha_atual) - i + 1));
@@ -114,12 +115,12 @@ void primeiraPassagem(char *arquivo_pre){
             else{
                 string_aux = (char *) realloc(string_aux, sizeof(char) * (strlen(string_aux) + 2));
                 strncat(string_aux, &c, 1);
-            } 
+            }
 
 
 
-            
-            // Procurar rótulo na tabela de símbolos 
+
+            // Procurar rótulo na tabela de símbolos
             int rotulo_tabela_simbolos = 0;
             for(int i = 0; i < 100; i++){
                 // Adiciona erro de rótulo duplicado na lista de erros
@@ -148,7 +149,7 @@ void primeiraPassagem(char *arquivo_pre){
 
         }
     }
-    
+
     fclose(f);
 }
 // Remover se houver mais de um espaco/tab/quebra de linha
@@ -156,7 +157,7 @@ char *limparEspaco(char *arquivo_pre){
     int i = 0, j = 0;
     int tamanho = strlen(arquivo_pre);
     char *arquivoLimpo = (char *) malloc(tamanho + 1);
-    
+
     if(!arquivoLimpo) return NULL;
 
     // Verifica se o caractere anterior fazia parte de uma palavra
@@ -198,7 +199,7 @@ char *abreArquivo(char *nomeArquivo){
     FILE *arquivo;
 
     arquivo = fopen(nomeArquivo, "r");
-    
+
     if(arquivo == NULL){
         printf("Erro ao abrir o arquivo\n");
         return NULL;
@@ -227,12 +228,12 @@ void converterMinusculo(char *arquivo){
 // Segunda parte do programa(Algoritmo de duas passagens) .o2
 
 
-void segundaPassagem(char *arquivo_pre){
+//void segundaPassagem(char *arquivo_pre){
     // Lógica para o algoritmo
-}
+//}
 
 int main(void){
-    
+
     char *conteudo = abreArquivo(nomeArquivo);
     if(conteudo == NULL){
         return 1;
