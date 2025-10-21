@@ -1,49 +1,41 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<ctype.h>
+#include<string.h>
 
-const char *tabela_intrucoes[14][2] = {
-    {"ADD", "01"},
-    {"SUB", "02"},
-    {"MUL", "03"},
-    {"DIV", "04"},
-    {"JMP", "05"},
-    {"JMPN", "06"},
-    {"JMPP", "07"},
-    {"JMPZ", "08"},
-    {"COPY", "09"},
+const int MAX_LINHAS = 1000;
+const int MAX_OPCODES = 14;
+const char *tabela_intrucoes[MAX_OPCODES][2] = {
+    {"ADD", "1"},
+    {"SUB", "2"},
+    {"MUL", "3"},
+    {"DIV", "4"},
+    {"JMP", "5"},
+    {"JMPN", "6"},
+    {"JMPP", "7"},
+    {"JMPZ", "8"},
+    {"COPY", "9"},
     {"LOAD", "10"},
     {"STORE", "11"},
     {"INPUT", "12"},
     {"OUTPUT", "13"},
     {"STOP", "14"}
 };
-
-// Primeira parte do programa(Algoritmo de uma passagem)
-
-void primeiraPassagem(char *arquivo_pre){
-    char *linhas_arquivo[100]; // Máximo de 100 linhas no arquivo
-
-    int cont_pos = 0;
-    int cont_lin = 0;
-    char *rotulo = NULL, *operacao = NULL, *operando[2] = {NULL}, *comentario = NULL;
-    char *string_aux = (char *)malloc(sizeof(char) * 1);
-    char tabela_simbolos[100][2]; // Tabela de símbolos (rótulo, linha que está o rótulo)
-    string_aux[0] = '\0';
+const char *tabela_diretivas[] = {
+    "SPACE",
+    "CONST",
+};
 
 
-
-    struct lista_erros
-    {
-        int linha;
-        char *mensagem;
-        char *tipo; // Léxico, sintático, semântico
-    } lista_erros[100];
-
-    int cont_erros = 0;
-
+char ***separaTokens(char *arquivo_pre){
+    char ***tabela_tokens = malloc(sizeof(char **) * MAX_LINHAS);
+    if(!tabela_tokens) return NULL;
+    
     FILE *f = fopen(arquivo_pre, "r");
     if(!f) return NULL;
+
+    char *linhas_arquivo[100]; // Máximo de 100 linhas no arquivo
+    int cont_lin = 0;
 
     while(fgetc(f) != EOF){
         fseek(f, -1, SEEK_CUR);
@@ -58,105 +50,248 @@ void primeiraPassagem(char *arquivo_pre){
         linha[i] = '\0';
         linhas_arquivo[cont_lin] = linha;
         cont_lin++;
+
+        // Remove os comentarios
+        char *comentario = strchr(linha, ';');
+        if(comentario) *comentario = '\0';
     }
 
-    cont_lin = 0;
-    while(linhas_arquivo[cont_lin] != NULL){
-        char *linha_atual = linhas_arquivo[cont_lin];
-        cont_lin++;
-        int n_operandos = 0;
+    char *rotuloPendente = NULL;
 
-        for(int i = 0; linha_atual[i] != '\0'; i++){
-            char c = linha_atual[i];
+    for(int i = 0; i < cont_lin; i++){
+        tabela_tokens[i] = malloc(sizeof(char *) * 4);
         
-            // Encontra comentário
-            if(c == ';'){
-                comentario = (char *)malloc(sizeof(char) * (strlen(linha_atual) - i + 1));
-                strcpy(comentario, &linha_atual[i]);
-                break;
-            }
+        for(int j = 0; j < 4; j++){
+            tabela_tokens[i][j] = NULL;
+        }
+        
+        char *linha_atual = linhas_arquivo[i];
+        char *doisPontos = strchr(linha_atual, ':');
+        char *resto = linha_atual;
 
-            //Encontra Operação
-            else if((isspace(c) || c == '\n') && strlen(string_aux) > 0 && n_operandos == 0 && operacao == NULL){
-                n_operandos = 1;
-                operacao = (char *)malloc(sizeof(char) * (strlen(string_aux) + 1));
-                strcpy(operacao, string_aux);
-                free(string_aux);
-                string_aux = (char *)malloc(sizeof(char) * 1);
-                string_aux[0] = '\0';
-            }
-
-            // Encontra Operando
-            else if((isspace(c) || c == '\n' || c == ',') && strlen(string_aux) > 0 && n_operandos > 0){
-                if(operando[0] == NULL){
-                    operando[0] = (char *)malloc(sizeof(char) * (strlen(string_aux) + 1));
-                    strcpy(operando[0], string_aux);
-                } else if(operando[1] == NULL){
-                    operando[1] = (char *)malloc(sizeof(char) * (strlen(string_aux) + 1));
-                    strcpy(operando[1], string_aux);
-                }
-                free(string_aux);
-                string_aux = (char *)malloc(sizeof(char) * 1);
-                string_aux[0] = '\0';
-                n_operandos++;
-            }
-
-            // Encontra Rótulo
-            else if(c == ':' && strlen(string_aux) > 0){
-                rotulo = (char *)malloc(sizeof(char) * (strlen(string_aux) + 1));
-                strcpy(rotulo, string_aux);
-                free(string_aux);
-                string_aux = (char *)malloc(sizeof(char) * 1);
-                string_aux[0] = '\0';
-            }
-
-            // Incrementador de string
-            else{
-                string_aux = (char *) realloc(string_aux, sizeof(char) * (strlen(string_aux) + 2));
-                strncat(string_aux, &c, 1);
-            } 
-
-
-
+        if(doisPontos){
+            *doisPontos = '\0';
+            char *rotulo = linha_atual;
             
-            // Procurar rótulo na tabela de símbolos 
-            int rotulo_tabela_simbolos = 0;
-            for(int i = 0; i < 100; i++){
-                // Adiciona erro de rótulo duplicado na lista de erros
-                if(strcmp(tabela_simbolos[i][0], rotulo) == 0){
-                    lista_erros[cont_erros].linha = cont_lin;
-                    lista_erros[cont_erros].mensagem = (char *)malloc(sizeof(char) * 50);
-                    lista_erros[cont_erros].tipo = "léxico";
-                    sprintf(lista_erros[cont_erros].mensagem, "Erro linha %d, %s", cont_lin, lista_erros[cont_erros].tipo);
-                    cont_erros++;
-                    rotulo_tabela_simbolos = 1;
+            while(strlen(rotulo) > 0 && (rotulo[strlen(rotulo) - 1] == ' ' || rotulo[strlen(rotulo) - 1] == '\t')){
+                rotulo[strlen(rotulo) - 1] = '\0';
+            }
+            
+            resto = doisPontos + 1;
+            while(*resto == ' ' || *resto == '\t') resto++;
+
+            if(*resto == '\0'){
+                if(rotuloPendente) free(rotuloPendente);
+                rotuloPendente = strdup(rotulo);
+                free(linhas_arquivo[i]);
+                free(tabela_tokens[i]);
+                continue;
+            }
+            else{
+                tabela_tokens[i][0] = strdup(rotulo);
+            }
+        } 
+        else if(rotuloPendente){
+            tabela_tokens[i][0] = rotuloPendente;
+            rotuloPendente = NULL;
+        }
+
+        char *token = strtok(resto, ",\t\n");
+        if(token) tabela_tokens[i][1] = strdup(token);
+
+        token = strtok(NULL, ",\t\n");
+        if(token) tabela_tokens[i][2] = strdup(token);
+
+        token = strtok(NULL, ",\t\n");
+        if(token) tabela_tokens[i][3] = strdup(token);
+        
+    } 
+
+    return tabela_tokens;
+}
+
+
+// Passagem única
+void passagemUnica(char ***tabela_tokenizada){
+    char *rotulo, *instrucao, *operando1, *operando2;
+    char *tabela_simbolos[MAX_LINHAS][4]; // Rótulo, Endereço(-1 == ), foi definido, ultimo endereco pendente (Enquanto não for -1, existe endereço pendente)
+    int codigo_objeto[1000];
+    int endereco_atual = 0;
+    // Percorrer linha a linha da minha tabela tokenizada
+    for(int i = 0; i < len(tabela_tokenizada); i++){
+        rotulo = tabela_tokenizada[i][0];
+        instrucao = tabela_tokenizada[i][1];
+        operando1 = tabela_tokenizada[i][2];
+        operando2 = tabela_tokenizada[i][3];
+
+        // Verificar se existe rótulo
+        if (rotulo != NULL){
+            // Verifica se o rótulo já existe na tabela de símbolos
+            int rotulo_existe = 0;
+            for(int j = 0; j < MAX_LINHAS; j++){
+                if(tabela_simbolos[j][0] != NULL && strcmp(tabela_simbolos[j][0], rotulo) == 0){
+                    // Rótulo já existe
+                    printf("Erro: rótulo '%s' já definido\n", rotulo);
+                    rotulo_existe = 1;
                     break;
                 }
             }
-            if(!rotulo_tabela_simbolos){
-                // Adiciona o rótulo na tabela de símbolos
-                for(int i = 0; i < 100; i++){
-                    if(tabela_simbolos[i][0] == NULL){
-                        tabela_simbolos[i][0] = rotulo;
-                        tabela_simbolos[i][1] = cont_lin;
+            // Adicionar o rótulo na tabela de símbolos
+            if(!rotulo_existe){
+                for(int j = 0; j < MAX_LINHAS; j++){
+                    if(tabela_simbolos[j][0] == NULL){
+                        tabela_simbolos[j][0] = strdup(rotulo);
+                        tabela_simbolos[j][1] = malloc(10 * sizeof(char));
+                        sprintf(tabela_simbolos[j][1], "%d", endereco_atual);
+                        tabela_simbolos[j][2] = strdup("SIM");
+                        tabela_simbolos[j][3] = strdup("-1");
                         break;
                     }
                 }
             }
+        }
+        
+        // Verificar qual a instrução
+        int endereco_encontrado = 0;
+        for(int j = 0; j < MAX_OPCODES; j++){
+            if(strcmp(instrucao, tabela_intrucoes[j][0]) == 0){
+                // Instrução encontrada
+                codigo_objeto[endereco_atual] = atoi(tabela_intrucoes[j][1]);
+                endereco_atual++;
+                endereco_encontrado = 1;
+                break;
+            }
+        }
+        if(!endereco_encontrado && strcmp(instrucao, "CONST") == 0){
+            // Diretiva CONST
+            codigo_objeto[endereco_atual] = atoi(operando1); // Valor constante
+            endereco_atual++;
+        }else if(!endereco_encontrado && strcmp(instrucao, "SPACE") == 0){
+            // Diretiva SPACE
+            if (operando1 != NULL && atoi(operando1) > 0){
+                for(int j = 0; j < atoi(operando1); j++){
+                    codigo_objeto[endereco_atual] = 0; // Espaço reservado
+                    endereco_atual++;
+                }
+            }else if(operando1 == NULL){
+                codigo_objeto[endereco_atual] = 0; // Espaço reservado
+                endereco_atual++;
+            }else{
+                // Erro: Operando inválido para SPACE
+                printf("Erro: Operando inválido para SPACE '%s'\n", operando1);
+            }
+        }else{
+            // Erro: Instrução inválida
+            printf("Erro: Instrução inválida '%s'\n", instrucao);
+        }
 
-/* ----------- Procura operação na tabela de instruções ----------- */
+        // Tratar operandos (se existirem)
+        if(operando1 != NULL && (strcmp(instrucao, "CONST") != 0) && (strcmp(instrucao, "SPACE") != 0)){
+            // Verificar se o operando1 é um rótulo
+            int operando_encontrado = 0;
+            for(int j = 0; j < MAX_LINHAS && tabela_simbolos[j][0] != NULL; j++){
+                if(strcmp(tabela_simbolos[j][0], operando1) == 0){
+                    // Operando1 encontrado na tabela de símbolos
+                    operando_encontrado = 1;
 
+                    if(strcmp(tabela_simbolos[j][2], "SIM") == 0){
+                        // Rótulo já definido
+                        codigo_objeto[endereco_atual] = atoi(tabela_simbolos[j][1]);
+
+                    }else{
+                        // Rótulo ainda não definido
+                        // adiciona último endereço pendente no endereço atual e atualiza o endereço pendente
+/* ________________________________________________________________________________________________________________________
+
+----------------------- O primeiro endereço pendente deve ter o valor -1? -------------------------------------------------
+___________________________________________________________________________________________________________________________ */
+                        int ultimo_endereco_pendente = atoi(tabela_simbolos[j][3]);
+                        codigo_objeto[endereco_atual] = ultimo_endereco_pendente;
+                        tabela_simbolos[j][3] = malloc(10 * sizeof(char));
+                        sprintf(tabela_simbolos[j][3], "%d", endereco_atual);
+
+                    }
+                    
+                    endereco_atual++;
+                    break;
+                }
+            }
+            if(!operando_encontrado){
+                // Adicionar operando1 como pendente na tabela de símbolos
+                for(int j = 0; j < MAX_LINHAS; j++){
+                    if(tabela_simbolos[j][0] == NULL){
+                        // Encontrou uma linha vazia na tabela de símbolos
+                        tabela_simbolos[j][0] = strdup(operando1);
+                        tabela_simbolos[j][1] = strdup("-1");
+                        tabela_simbolos[j][2] = strdup("PEND");
+                        tabela_simbolos[j][3] = malloc(10 * sizeof(char));
+                        sprintf(tabela_simbolos[j][3], "%d", endereco_atual);
+                        break;
+                    }
+                }
+                codigo_objeto[endereco_atual] = -1; // Fim da lista de pendencias
+            }
+        }
+
+
+        if(operando2 != NULL && (strcmp(instrucao, "CONST") != 0) && (strcmp(instrucao, "SPACE") != 0)){
+            // Verificar se o operando2 é um rótulo
+            int operando_encontrado = 0;
+            for(int j = 0; j < MAX_LINHAS && tabela_simbolos[j][0] != NULL; j++){
+                if(strcmp(tabela_simbolos[j][0], operando2) == 0){
+                    // Operando1 encontrado na tabela de símbolos
+                    operando_encontrado = 1;
+
+                    if(strcmp(tabela_simbolos[j][2], "SIM") == 0){
+                        // Rótulo já definido
+                        codigo_objeto[endereco_atual] = atoi(tabela_simbolos[j][1]);
+
+                    }else{
+                        // Rótulo ainda não definido
+                        // adiciona último endereço pendente no endereço atual e atualiza o endereço pendente
+/* ________________________________________________________________________________________________________________________
+
+----------------------- O primeiro endereço pendente deve ter o valor -1? -------------------------------------------------
+___________________________________________________________________________________________________________________________ */
+                        int ultimo_endereco_pendente = atoi(tabela_simbolos[j][3]);
+                        codigo_objeto[endereco_atual] = ultimo_endereco_pendente;
+                        tabela_simbolos[j][3] = malloc(10 * sizeof(char));
+                        sprintf(tabela_simbolos[j][3], "%d", endereco_atual);
+
+                    }
+                    
+                    endereco_atual++;
+                    break;
+                }
+            }
+            if(!operando_encontrado){
+                // Adicionar operando2 como pendente na tabela de símbolos
+                for(int j = 0; j < MAX_LINHAS; j++){
+                    if(tabela_simbolos[j][0] == NULL){
+                        // Encontrou uma linha vazia na tabela de símbolos
+                        tabela_simbolos[j][0] = strdup(operando2);
+                        tabela_simbolos[j][1] = strdup("-1");
+                        tabela_simbolos[j][2] = strdup("PEND");
+                        tabela_simbolos[j][3] = malloc(10 * sizeof(char));
+                        sprintf(tabela_simbolos[j][3], "%d", endereco_atual);
+                        break;
+                    }
+                }
+                codigo_objeto[endereco_atual] = -1; // Fim da lista de pendencias
+            }
         }
     }
-    
-    fclose(f);
 }
+
+
+
+
 // Remover se houver mais de um espaco/tab/quebra de linha
 char *limparEspaco(char *arquivo_pre){
     int i = 0, j = 0;
     int tamanho = strlen(arquivo_pre);
     char *arquivoLimpo = (char *) malloc(tamanho + 1);
-    
+
     if(!arquivoLimpo) return NULL;
 
     // Verifica se o caractere anterior fazia parte de uma palavra
@@ -198,7 +333,7 @@ char *abreArquivo(char *nomeArquivo){
     FILE *arquivo;
 
     arquivo = fopen(nomeArquivo, "r");
-    
+
     if(arquivo == NULL){
         printf("Erro ao abrir o arquivo\n");
         return NULL;
@@ -224,15 +359,8 @@ void converterMinusculo(char *arquivo){
         arquivo[i] = tolower(arquivo[i]);
 }
 
-// Segunda parte do programa(Algoritmo de duas passagens) .o2
-
-
-void segundaPassagem(char *arquivo_pre){
-    // Lógica para o algoritmo
-}
-
 int main(void){
-    
+
     char *conteudo = abreArquivo(nomeArquivo);
     if(conteudo == NULL){
         return 1;
