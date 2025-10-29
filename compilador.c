@@ -380,6 +380,7 @@ int main(void){
     char *conteudoLimpo = limparEspaco(conteudo);
     printf("%s\n", conteudoLimpo);
 
-    primeiraPassagem(conteudoLimpo); // .o1 (pendências ainda não resolvidas)
+    char **tokens = separaTokens(conteudoLimpo);
+    passagemUnica(tokens); // .o1 (pendências ainda não resolvidas)
     return 0;
 }
