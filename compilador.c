@@ -3,8 +3,8 @@
 #include<ctype.h>
 #include<string.h>
 
-const int MAX_LINHAS = 1000;
-const int MAX_OPCODES = 14;
+#define MAX_LINHAS 1000
+#define MAX_OPCODES 14
 const char *tabela_intrucoes[MAX_OPCODES][2] = {
     {"ADD", "1"},
     {"SUB", "2"},
@@ -28,7 +28,7 @@ const char *tabela_diretivas[] = {
 
 
 char ***separaTokens(char *arquivo_pre){
-    char ***tabela_tokens = malloc(sizeof(char **) * MAX_LINHAS);
+    char ***tabela_tokens = calloc(MAX_LINHAS, sizeof(char **));
     if(!tabela_tokens) return NULL;
     
     FILE *f = fopen(arquivo_pre, "r");
@@ -129,7 +129,7 @@ void passagemUnica(char ***tabela_tokenizada){
     int codigo_objeto[1000];
     int endereco_atual = 0;
     // Percorrer linha a linha da minha tabela tokenizada
-    for(int i = 0; i < len(tabela_tokenizada); i++){
+    for(int i = 0; tabela_tokenizada[i] != NULL; i++){
         rotulo = tabela_tokenizada[i][0];
         instrucao = tabela_tokenizada[i][1];
         operando1 = tabela_tokenizada[i][2];
@@ -337,26 +337,35 @@ char *limparEspaco(char *arquivo_pre){
 }
 
 char *abreArquivo(char *nomeArquivo){
-    FILE *arquivo;
-
-    arquivo = fopen(nomeArquivo, "r");
+    FILE *arquivo = fopen(nomeArquivo, "r");
 
     if(arquivo == NULL){
-        printf("Erro ao abrir o arquivo\n");
+        perror("Erro ao abrir o arquivo");
         return NULL;
     }
 
-    char *conteudo = (char *)malloc(sizeof(char) * 1000); // Aloca memória para o conteúdo do arquivo
-    if(conteudo == NULL){
-        printf("Erro ao alocar memória\n");
+    if(fseek(arquivo, 0, SEEK_END) != 0){
+        perror("Erro ao buscar o final do arquivo");
+        fclose(arquivo);
         return NULL;
     }
-    int i = 0;
-    char c;
-    while((c = fgetc(arquivo)) != EOF){
-        conteudo[i++] = c;
+    long tamanho = ftell(arquivo);
+    if(tamanho < 0){
+        perror("Erro ao obter o tamanho do arquivo");
+        fclose(arquivo);
+        return NULL;
     }
-    conteudo[i] = '\0'; // Adiciona o caractere nulo ao final da string
+    rewind(arquivo);
+
+    char *conteudo = (char *)malloc(sizeof(char) * (tamanho + 1)); // Aloca memória para o conteúdo do arquivo
+    if (conteudo == NULL){
+        printf("Erro ao alocar memória\n");
+        fclose(arquivo);
+        return NULL;
+    }
+
+    size_t lidos = fread(conteudo, 1, (size_t)tamanho, arquivo);
+    conteudo[lidos] = '\0'; // Adiciona o caractere nulo ao final da string
     fclose(arquivo);
     return conteudo;
 }
@@ -375,12 +384,15 @@ int main(void){
 
     converterMinusculo(conteudo);
     printf("%s\n", conteudo);
-    free(conteudo);
 
     char *conteudoLimpo = limparEspaco(conteudo);
+    free(conteudo);
+    if(conteudoLimpo == NULL){
+        return 1;
+    }
     printf("%s\n", conteudoLimpo);
 
-    char **tokens = separaTokens(conteudoLimpo);
+    char ***tokens = separaTokens(conteudoLimpo);
     passagemUnica(tokens); // .o1 (pendências ainda não resolvidas)
     return 0;
 }
