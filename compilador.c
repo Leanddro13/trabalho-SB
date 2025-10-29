@@ -110,6 +110,17 @@ char ***separaTokens(char *arquivo_pre){
     return tabela_tokens;
 }
 
+void imprimeArquivoObjeto(int *codigo_objeto, int tamanho){
+    FILE *arquivo_objeto = fopen("output.o1", "w");
+    if(!arquivo_objeto){
+        printf("Erro ao criar o arquivo objeto\n");
+        return;
+    }
+    for(int i = 0; i < tamanho; i++){
+        fprintf(arquivo_objeto, "%d\n", codigo_objeto[i]);
+    }
+    fclose(arquivo_objeto);
+}
 
 // Passagem única
 void passagemUnica(char ***tabela_tokenizada){
@@ -201,18 +212,14 @@ void passagemUnica(char ***tabela_tokenizada){
                     }else{
                         // Rótulo ainda não definido
                         // adiciona último endereço pendente no endereço atual e atualiza o endereço pendente
-/* ________________________________________________________________________________________________________________________
-
------------------------ O primeiro endereço pendente deve ter o valor -1? -------------------------------------------------
-___________________________________________________________________________________________________________________________ */
                         int ultimo_endereco_pendente = atoi(tabela_simbolos[j][3]);
                         codigo_objeto[endereco_atual] = ultimo_endereco_pendente;
                         tabela_simbolos[j][3] = malloc(10 * sizeof(char));
                         sprintf(tabela_simbolos[j][3], "%d", endereco_atual);
 
                     }
-                    
-                    endereco_atual++;
+                    break;
+                }else if(tabela_simbolos[j][0] == NULL){
                     break;
                 }
             }
@@ -231,6 +238,7 @@ ________________________________________________________________________________
                 }
                 codigo_objeto[endereco_atual] = -1; // Fim da lista de pendencias
             }
+            endereco_atual++;
         }
 
 
@@ -249,18 +257,14 @@ ________________________________________________________________________________
                     }else{
                         // Rótulo ainda não definido
                         // adiciona último endereço pendente no endereço atual e atualiza o endereço pendente
-/* ________________________________________________________________________________________________________________________
-
------------------------ O primeiro endereço pendente deve ter o valor -1? -------------------------------------------------
-___________________________________________________________________________________________________________________________ */
                         int ultimo_endereco_pendente = atoi(tabela_simbolos[j][3]);
                         codigo_objeto[endereco_atual] = ultimo_endereco_pendente;
                         tabela_simbolos[j][3] = malloc(10 * sizeof(char));
                         sprintf(tabela_simbolos[j][3], "%d", endereco_atual);
 
                     }
-                    
-                    endereco_atual++;
+                    break;
+                }else if(tabela_simbolos[j][0] == NULL){
                     break;
                 }
             }
@@ -279,8 +283,11 @@ ________________________________________________________________________________
                 }
                 codigo_objeto[endereco_atual] = -1; // Fim da lista de pendencias
             }
+            endereco_atual++;
         }
     }
+    // imprimir o código objeto em um arquivo .o1
+    imprimeArquivoObjeto(codigo_objeto, endereco_atual);
 }
 
 
@@ -361,7 +368,7 @@ void converterMinusculo(char *arquivo){
 
 int main(void){
 
-    char *conteudo = abreArquivo(nomeArquivo);
+    char *conteudo = abreArquivo("output.pre");
     if(conteudo == NULL){
         return 1;
     }
