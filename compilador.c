@@ -376,7 +376,6 @@ void converterMinusculo(char *arquivo){
 }
 
 int main(void){
-
     char *conteudo = abreArquivo("output.pre");
     if(conteudo == NULL){
         return 1;
