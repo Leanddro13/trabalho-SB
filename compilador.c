@@ -26,86 +26,92 @@ const char *tabela_diretivas[] = {
     "CONST",
 };
 
-
 char ***separaTokens(char *arquivo_pre){
-    char ***tabela_tokens = calloc(MAX_LINHAS, sizeof(char **));
-    if(!tabela_tokens) return NULL;
-    
-    FILE *f = fopen(arquivo_pre, "r");
-    if(!f) return NULL;
 
-    char *linhas_arquivo[100]; // Máximo de 100 linhas no arquivo
+    int cont_car = 0;
+    int tamanho = strlen(arquivo_pre);
+    char ***tabela_tokens = malloc(sizeof(char **) * (MAX_LINHAS + 1)); // Rótulo, Operação, Operando1, Operando2
+    char *linha_atual = malloc(1);
+    char **linhas_arquivo = malloc(sizeof(char *) * (MAX_LINHAS + 1));
     int cont_lin = 0;
+    int cont_car_lin = 0;
 
-    while(fgetc(f) != EOF){
-        fseek(f, -1, SEEK_CUR);
-        char *linha = (char *)malloc(sizeof(char) * 1000); // Máximo de 1000 caracteres por linha
-        if(!linha) return NULL;
-
-        int i = 0;
-        char c;
-        while((c = fgetc(f)) != '\n' && c != EOF){
-            linha[i++] = c;
+    // Separa as linhas
+    do{
+        linha_atual = realloc(linha_atual, sizeof(char) * (cont_car_lin + 1));
+        if(arquivo_pre[cont_car] == '\n' || arquivo_pre[cont_car] == '\0'){
+            linha_atual[cont_car_lin] = '\0';
+            linhas_arquivo[cont_lin] = linha_atual;
+            cont_lin++;
+            linhas_arquivo = realloc(linhas_arquivo, sizeof(char *) * (cont_lin + 1));
+            cont_car_lin = 0;
+            linha_atual = malloc(1);
         }
-        linha[i] = '\0';
-        linhas_arquivo[cont_lin] = linha;
-        cont_lin++;
+        else{
+            linha_atual[cont_car_lin] = arquivo_pre[cont_car];
+            cont_car_lin++;
+        }
+    }while(arquivo_pre[cont_car++] != '\0');
 
-        // Remove os comentarios
-        char *comentario = strchr(linha, ';');
-        if(comentario) *comentario = '\0';
-    }
-
-    char *rotuloPendente = NULL;
-
-    for(int i = 0; i < cont_lin; i++){
+    // Inicializa a tabela de tokens (cada linha tem 4 ponteiros)
+    for(int i = 0; i <= cont_lin; i++){
         tabela_tokens[i] = malloc(sizeof(char *) * 4);
-        
-        for(int j = 0; j < 4; j++){
-            tabela_tokens[i][j] = NULL;
-        }
-        
-        char *linha_atual = linhas_arquivo[i];
-        char *doisPontos = strchr(linha_atual, ':');
-        char *resto = linha_atual;
+        for(int k = 0; k < 4; k++) tabela_tokens[i][k] = NULL;
+    }
+    tabela_tokens[cont_lin] = NULL; // Marca o fim da tabela de tokens
 
-        if(doisPontos){
-            *doisPontos = '\0';
-            char *rotulo = linha_atual;
-            
-            while(strlen(rotulo) > 0 && (rotulo[strlen(rotulo) - 1] == ' ' || rotulo[strlen(rotulo) - 1] == '\t')){
-                rotulo[strlen(rotulo) - 1] = '\0';
-            }
-            
-            resto = doisPontos + 1;
-            while(*resto == ' ' || *resto == '\t') resto++;
+    // separa os tokens (forma simples e robusta usando strtok_r / strchr)
+    for(int i = 0; i < cont_lin; i++){
+        char *line = linhas_arquivo[i];
+        if(line == NULL || line[0] == '\0') continue;
 
-            if(*resto == '\0'){
-                if(rotuloPendente) free(rotuloPendente);
-                rotuloPendente = strdup(rotulo);
-                free(linhas_arquivo[i]);
-                free(tabela_tokens[i]);
-                continue;
-            }
-            else{
-                tabela_tokens[i][0] = strdup(rotulo);
-            }
-        } 
-        else if(rotuloPendente){
-            tabela_tokens[i][0] = rotuloPendente;
-            rotuloPendente = NULL;
+        char *copy = strdup(line);
+        char *ptr = copy;
+
+        // Verifica se há rótulo (':')
+        char *label = NULL;
+        char *colon = strchr(ptr, ':');
+        if(colon){
+            *colon = '\0';
+            label = strdup(ptr);
+            ptr = colon + 1;
         }
 
-        char *token = strtok(resto, ",\t\n");
-        if(token) tabela_tokens[i][1] = strdup(token);
+        // Trim inicial
+        while(*ptr == ' ' || *ptr == '\t') ptr++;
 
-        token = strtok(NULL, ",\t\n");
-        if(token) tabela_tokens[i][2] = strdup(token);
+        char *instr = NULL;
+        char *op1 = NULL;
+        char *op2 = NULL;
 
-        token = strtok(NULL, ",\t\n");
-        if(token) tabela_tokens[i][3] = strdup(token);
-        
-    } 
+        char *saveptr;
+        char *tok = strtok_r(ptr, " \t\n", &saveptr);
+        if(tok) instr = strdup(tok);
+
+        if(instr){
+            // A partir do restante (saveptr) pegar operandos separados por ','
+            char *rest = saveptr;
+            if(rest){
+                char *o1 = strtok_r(rest, ",\t\n", &saveptr);
+                if(o1){
+                    while(*o1 == ' ') o1++;
+                    op1 = strdup(o1);
+                    char *o2 = strtok_r(NULL, ",\t\n", &saveptr);
+                    if(o2){
+                        while(*o2 == ' ') o2++;
+                        op2 = strdup(o2);
+                    }
+                }
+            }
+        }
+
+        tabela_tokens[i][0] = label;
+        tabela_tokens[i][1] = instr;
+        tabela_tokens[i][2] = op1;
+        tabela_tokens[i][3] = op2;
+
+        free(copy);
+    }
 
     return tabela_tokens;
 }
@@ -380,18 +386,40 @@ int main(void){
     if(conteudo == NULL){
         return 1;
     }
+    printf("____________________ documento original ____________________\n");
+    printf("%s\n\n", conteudo);
 
     converterMinusculo(conteudo);
-    printf("%s\n", conteudo);
+    printf("____________________ documento em minusculo ____________________\n");
+    printf("%s\n\n", conteudo);
 
     char *conteudoLimpo = limparEspaco(conteudo);
     free(conteudo);
     if(conteudoLimpo == NULL){
         return 1;
     }
-    printf("%s\n", conteudoLimpo);
+    printf("____________________ documento limpo ____________________\n");
+    printf("%s\n\n", conteudoLimpo);
 
     char ***tokens = separaTokens(conteudoLimpo);
+    free(conteudoLimpo);
+    if(tokens == NULL){
+        printf("Erro ao separar os tokens\n");
+        return 1;
+    }
+    printf("____________________ tokens separados ____________________\n");
+    for(int i = 0; tokens[i] != NULL; i++){
+        printf("Linha %d: ", i + 1);
+        for(int j = 0; j < 4; j++){
+            if(tokens[i][j] != NULL)
+                printf("[%s] ", tokens[i][j]);
+            else
+                printf("[NULL] ");
+        }
+        printf("\n");
+    }
+/*
     passagemUnica(tokens); // .o1 (pendências ainda não resolvidas)
     return 0;
+    */
 }
