@@ -5,7 +5,7 @@
 
 #define MAX_LINHAS 1000
 #define MAX_OPCODES 14
-const char *tabela_intrucoes[MAX_OPCODES][2] = {
+const char *tabela_intrucoes_upper[MAX_OPCODES][2] = {
     {"ADD", "1"},
     {"SUB", "2"},
     {"MUL", "3"},
@@ -21,15 +21,274 @@ const char *tabela_intrucoes[MAX_OPCODES][2] = {
     {"OUTPUT", "13"},
     {"STOP", "14"}
 };
+const char *tabela_intrucoes_lower[MAX_OPCODES] = {
+    "add",
+    "sub",
+    "mul",
+    "div",
+    "jmp",
+    "jmpn",
+    "jmpp",
+    "jmpz",
+    "copy",
+    "load",
+    "store",
+    "input",
+    "output",
+    "stop"
+};
 const char *tabela_diretivas[] = {
     "SPACE",
     "CONST",
 };
 
+void imprimeArquivoObjeto(int *codigo_objeto, int tamanho){
+    FILE *arquivo_objeto = fopen("output.o1", "w");
+    if(!arquivo_objeto){
+        printf("Erro ao criar o arquivo objeto\n");
+        return;
+    }
+    for(int i = 0; i < tamanho; i++){
+        fprintf(arquivo_objeto, "%d\n", codigo_objeto[i]);
+    }
+    fclose(arquivo_objeto);
+}
+
+// Passagem única
+void passagemUnica(char ***tabela_tokenizada){
+    // Variáveis
+    char *token = NULL, ***tabela_definicao = NULL; // Rótulo, Endereço
+    int * codigo_objeto = NULL;
+    int lin_atual = 0, rotulo_definido = 0, linha = 0, endereco_atual = 0, end_encontrado = 0;
+    int operando_encontrado = 0;
+    char *op_space, *op_const;
+
+    // Percorre linha a linha pegando os tokens
+    while (tabela_tokenizada[lin_atual]){
+        token = tabela_tokenizada[lin_atual][0];
+        // Verifica se o token existe
+        if (token && tabela_definicao){
+            //Procura na tabela de definições
+            for(linha = 0; tabela_definicao[linha]; linha++){
+                if(strcmp(tabela_definicao[linha][0], token) == 0){
+                    // Rótulo já existe
+                    rotulo_definido = 1;
+                    printf("Erro: rótulo '%s' já definido\n", token);
+                    break;
+                }
+            }
+            if(!rotulo_definido){
+                // Adiciona o rótulo na tabela de definições
+                // Rotulo, endereco, definido, ultima pendencia
+                tabela_definicao = realloc(tabela_definicao, sizeof(char **) * (linha + 2));
+                tabela_definicao[linha] = malloc(sizeof(char *) * 4);
+                tabela_definicao[linha][0] = strdup(token); // Rótulo
+                tabela_definicao[linha][1] = malloc(5 * sizeof(char));
+                sprintf(tabela_definicao[linha][1], "%d", endereco_atual); // Endereço
+                tabela_definicao[linha][2] = strdup("S"); // Definido
+                tabela_definicao[linha][3] = strdup("-1"); // Última pendência
+                tabela_definicao[linha + 1] = NULL; // Marca o fim da tabela
+            }
+        }else if (token && !tabela_definicao){
+            // Primeira vez que adiciona um rótulo
+            tabela_definicao = malloc(sizeof(char **) * 2);
+            tabela_definicao[0] = malloc(sizeof(char *) * 4);
+            tabela_definicao[0][0] = strdup(token); // Rótulo
+            tabela_definicao[0][1] = malloc(5 * sizeof(char));
+            sprintf(tabela_definicao[0][1], "%d", endereco_atual); // Endereço
+            tabela_definicao[0][2] = strdup("D"); // Definido
+            tabela_definicao[0][3] = strdup("-1"); // Última pendência
+            tabela_definicao[1] = NULL; // Marca o fim da tabela
+        }
+
+
+        // Verifica a instrução
+        token = tabela_tokenizada[lin_atual][1];
+        for(int i = 0; i < MAX_OPCODES; i++){
+            if(token != NULL && strcmp(token, tabela_intrucoes_lower[i]) == 0){
+                // Instrução encontrada
+                codigo_objeto = realloc(codigo_objeto, sizeof(int) * (endereco_atual + 1));
+                codigo_objeto[endereco_atual] = i+1;
+                endereco_atual++;
+                end_encontrado = 1;
+                break;
+            }
+        }
+        if(!end_encontrado && strcmp(token, "CONST") == 0){
+            // Diretiva CONST
+            codigo_objeto = realloc(codigo_objeto, sizeof(int) * (endereco_atual + 1));
+            codigo_objeto[endereco_atual] = atoi(tabela_tokenizada[lin_atual][2]); // Valor constante
+            endereco_atual++;
+        }else if(!end_encontrado && strcmp(token, "SPACE") == 0){
+            // Diretiva SPACE
+            // Se houver um operando, usa seu valor como quantidade; caso contrário, reserva 1 posição
+            op_space = tabela_tokenizada[lin_atual][2];
+            int quantidade = 1;
+            if(op_space != NULL){
+                int valor = atoi(op_space);
+                if(valor > 0) quantidade = valor;
+            }
+            for(int i = 0; i < quantidade; i++){
+                codigo_objeto = realloc(codigo_objeto, sizeof(int) * (endereco_atual + 1));
+                codigo_objeto[endereco_atual] = 0; // Espaço reservado
+                endereco_atual++;
+            }
+        }else if(!end_encontrado){
+            // Erro: Instrução inválida
+            printf("Erro: Instrução inválida '%s'\n", token);
+        }
+
+
+        // Verifica os operandos
+        for(int i = 2; i <=3; i++){
+            if(tabela_tokenizada[lin_atual][i] == NULL) continue;
+            operando_encontrado = 0;
+            token = tabela_tokenizada[lin_atual][i];
+            if(tabela_definicao){
+                // Procura na tabela de definicoes
+                for(linha = 0; tabela_definicao[linha]; linha++){
+                    op_const = tabela_definicao[linha][0];
+                    if(strcmp(op_const, token) == 0){
+                        // Operando encontrado
+                        operando_encontrado = 1;
+                        if(strcmp(tabela_definicao[linha][2], "S") == 0){
+                            // Rótulo já definido
+                            codigo_objeto = realloc(codigo_objeto, sizeof(int) * (endereco_atual + 1));
+                            codigo_objeto[endereco_atual] = atoi(tabela_definicao[linha][1]);
+                        }else{
+                            // Rótulo ainda não definido
+                            // adiciona último endereço pendente no endereço atual e atualiza o endereço pendente
+                            int ultimo_endereco_pendente = atoi(tabela_definicao[linha][3]);
+                            codigo_objeto = realloc(codigo_objeto, sizeof(int) * (endereco_atual + 1));
+                            codigo_objeto[endereco_atual] = ultimo_endereco_pendente;
+                            tabela_definicao[linha][3] = malloc(5 * sizeof(char));
+                            sprintf(tabela_definicao[linha][3], "%d", endereco_atual);
+                        }
+                        break;
+                    }
+                }
+                if(!operando_encontrado){
+                    // Adiciona operando como pendente na tabela de definicoes
+                    tabela_definicao = realloc(tabela_definicao, sizeof(char **) * (linha + 2));
+                    tabela_definicao[linha] = malloc(sizeof(char *) * 4);
+                    tabela_definicao[linha][0] = strdup(token); // Rótulo
+                    tabela_definicao[linha][1] = strdup("-1"); // Endereço
+                    tabela_definicao[linha][2] = strdup("P"); // Pendente
+                    tabela_definicao[linha][3] = malloc(5 * sizeof(char));
+                    sprintf(tabela_definicao[linha][3], "%d", endereco_atual); // Última pendência
+                    tabela_definicao[linha + 1] = NULL; // Marca o fim da tabela
+                    codigo_objeto = realloc(codigo_objeto, sizeof(int) * (endereco_atual + 1));
+                    codigo_objeto[endereco_atual] = -1; // Fim da lista de pendencias
+                }
+            }else{
+                // Primeira vez que adiciona um operando pendente
+                tabela_definicao = malloc(sizeof(char **) * 2);
+                tabela_definicao[0] = malloc(sizeof(char *) * 4);
+                tabela_definicao[0][0] = strdup(token); // Rótulo
+                tabela_definicao[0][1] = strdup("-1"); // Endereço
+                tabela_definicao[0][2] = strdup("P"); // Pendente
+                tabela_definicao[0][3] = malloc(5 * sizeof(char));
+                sprintf(tabela_definicao[0][3], "%d", endereco_atual); // Última pendência
+                tabela_definicao[1] = NULL; // Marca o fim da tabela
+                codigo_objeto = realloc(codigo_objeto, sizeof(int) * (endereco_atual + 1));
+                codigo_objeto[endereco_atual] = -1; // Fim da lista de pendencias
+            }
+            endereco_atual++;
+        }
+        lin_atual++;
+    }
+    // imprimir o código objeto em um arquivo .o1
+    printf("____________________ codigo objeto gerado ____________________\n");
+    for(int i = 0; i < endereco_atual; i++){
+        printf("%d\n", codigo_objeto[i]);
+    }
+}
+
+// Remover se houver mais de um espaco/tab/quebra de linha
+char *limparEspaco(char *arquivo_pre){
+    int i = 0, j = 0;
+    int tamanho = strlen(arquivo_pre);
+    char *arquivoLimpo = (char *) malloc(tamanho + 1);
+
+    if(!arquivoLimpo) return NULL;
+
+    // Verifica se o caractere anterior fazia parte de uma palavra
+    int dentroDePalavra = 0;
+    // Mantem as linhas só se preocupando em remover os espaços em excesso
+    int ultimaFoiQuebra = 0;
+
+    while(arquivo_pre[i] != '\0'){
+        if(arquivo_pre[i] == ' ' || arquivo_pre[i] == '\t'){
+            if(dentroDePalavra){
+                arquivoLimpo[j++] = ' ';
+                dentroDePalavra = 0;
+            }
+        }
+        else if(arquivo_pre[i] == '\n' || arquivo_pre[i] == '\r'){
+            if(!ultimaFoiQuebra){
+                arquivoLimpo[j++] = '\n';
+                ultimaFoiQuebra = 1;
+                dentroDePalavra = 0;
+            }
+        }
+        else{
+            arquivoLimpo[j++] = arquivo_pre[i];
+            dentroDePalavra = 1;
+            ultimaFoiQuebra = 0;
+        }
+        i++;
+    }
+
+    // Remove espaço no final do arquivo, se tiver
+    if(j > 0 && (arquivoLimpo[j - 1] == ' ' || arquivoLimpo[j - 1] == '\n'))
+        j--;
+
+    arquivoLimpo[j] = '\0';
+    return arquivoLimpo;
+}
+
+char *abreArquivo(char *nomeArquivo){
+    FILE *arquivo = fopen(nomeArquivo, "r");
+
+    if(arquivo == NULL){
+        perror("Erro ao abrir o arquivo");
+        return NULL;
+    }
+
+    if(fseek(arquivo, 0, SEEK_END) != 0){
+        perror("Erro ao buscar o final do arquivo");
+        fclose(arquivo);
+        return NULL;
+    }
+    long tamanho = ftell(arquivo);
+    if(tamanho < 0){
+        perror("Erro ao obter o tamanho do arquivo");
+        fclose(arquivo);
+        return NULL;
+    }
+    rewind(arquivo);
+
+    char *conteudo = (char *)malloc(sizeof(char) * (tamanho + 1)); // Aloca memória para o conteúdo do arquivo
+    if (conteudo == NULL){
+        printf("Erro ao alocar memória\n");
+        fclose(arquivo);
+        return NULL;
+    }
+
+    size_t lidos = fread(conteudo, 1, (size_t)tamanho, arquivo);
+    conteudo[lidos] = '\0'; // Adiciona o caractere nulo ao final da string
+    fclose(arquivo);
+    return conteudo;
+}
+
+void converterMinusculo(char *arquivo){
+    for(int i = 0; arquivo[i] != '\0'; i++)
+        arquivo[i] = tolower(arquivo[i]);
+}
+
 char ***separaTokens(char *arquivo_pre){
 
     int cont_car = 0;
-    int tamanho = strlen(arquivo_pre);
     char ***tabela_tokens = malloc(sizeof(char **) * (MAX_LINHAS + 1)); // Rótulo, Operação, Operando1, Operando2
     char *linha_atual = malloc(1);
     char **linhas_arquivo = malloc(sizeof(char *) * (MAX_LINHAS + 1));
@@ -116,270 +375,6 @@ char ***separaTokens(char *arquivo_pre){
     return tabela_tokens;
 }
 
-void imprimeArquivoObjeto(int *codigo_objeto, int tamanho){
-    FILE *arquivo_objeto = fopen("output.o1", "w");
-    if(!arquivo_objeto){
-        printf("Erro ao criar o arquivo objeto\n");
-        return;
-    }
-    for(int i = 0; i < tamanho; i++){
-        fprintf(arquivo_objeto, "%d\n", codigo_objeto[i]);
-    }
-    fclose(arquivo_objeto);
-}
-
-// Passagem única
-void passagemUnica(char ***tabela_tokenizada){
-    char *rotulo, *instrucao, *operando1, *operando2;
-    char *tabela_simbolos[MAX_LINHAS][4]; // Rótulo, Endereço(-1 == ), foi definido, ultimo endereco pendente (Enquanto não for -1, existe endereço pendente)
-    int codigo_objeto[1000];
-    int endereco_atual = 0;
-    // Percorrer linha a linha da minha tabela tokenizada
-    for(int i = 0; tabela_tokenizada[i] != NULL; i++){
-        rotulo = tabela_tokenizada[i][0];
-        instrucao = tabela_tokenizada[i][1];
-        operando1 = tabela_tokenizada[i][2];
-        operando2 = tabela_tokenizada[i][3];
-
-        // Verificar se existe rótulo
-        if (rotulo != NULL){
-            // Verifica se o rótulo já existe na tabela de símbolos
-            int rotulo_existe = 0;
-            for(int j = 0; j < MAX_LINHAS; j++){
-                if(tabela_simbolos[j][0] != NULL && strcmp(tabela_simbolos[j][0], rotulo) == 0){
-                    // Rótulo já existe
-                    printf("Erro: rótulo '%s' já definido\n", rotulo);
-                    rotulo_existe = 1;
-                    break;
-                }
-            }
-            // Adicionar o rótulo na tabela de símbolos
-            if(!rotulo_existe){
-                for(int j = 0; j < MAX_LINHAS; j++){
-                    if(tabela_simbolos[j][0] == NULL){
-                        tabela_simbolos[j][0] = strdup(rotulo);
-                        tabela_simbolos[j][1] = malloc(10 * sizeof(char));
-                        sprintf(tabela_simbolos[j][1], "%d", endereco_atual);
-                        tabela_simbolos[j][2] = strdup("SIM");
-                        tabela_simbolos[j][3] = strdup("-1");
-                        break;
-                    }
-                }
-            }
-        }
-        
-        // Verificar qual a instrução
-        int endereco_encontrado = 0;
-        for(int j = 0; j < MAX_OPCODES; j++){
-            if(strcmp(instrucao, tabela_intrucoes[j][0]) == 0){
-                // Instrução encontrada
-                codigo_objeto[endereco_atual] = atoi(tabela_intrucoes[j][1]);
-                endereco_atual++;
-                endereco_encontrado = 1;
-                break;
-            }
-        }
-        if(!endereco_encontrado && strcmp(instrucao, "CONST") == 0){
-            // Diretiva CONST
-            codigo_objeto[endereco_atual] = atoi(operando1); // Valor constante
-            endereco_atual++;
-        }else if(!endereco_encontrado && strcmp(instrucao, "SPACE") == 0){
-            // Diretiva SPACE
-            if (operando1 != NULL && atoi(operando1) > 0){
-                for(int j = 0; j < atoi(operando1); j++){
-                    codigo_objeto[endereco_atual] = 0; // Espaço reservado
-                    endereco_atual++;
-                }
-            }else if(operando1 == NULL){
-                codigo_objeto[endereco_atual] = 0; // Espaço reservado
-                endereco_atual++;
-            }else{
-                // Erro: Operando inválido para SPACE
-                printf("Erro: Operando inválido para SPACE '%s'\n", operando1);
-            }
-        }else{
-            // Erro: Instrução inválida
-            printf("Erro: Instrução inválida '%s'\n", instrucao);
-        }
-
-        // Tratar operandos (se existirem)
-        if(operando1 != NULL && (strcmp(instrucao, "CONST") != 0) && (strcmp(instrucao, "SPACE") != 0)){
-            // Verificar se o operando1 é um rótulo
-            int operando_encontrado = 0;
-            for(int j = 0; j < MAX_LINHAS && tabela_simbolos[j][0] != NULL; j++){
-                if(strcmp(tabela_simbolos[j][0], operando1) == 0){
-                    // Operando1 encontrado na tabela de símbolos
-                    operando_encontrado = 1;
-
-                    if(strcmp(tabela_simbolos[j][2], "SIM") == 0){
-                        // Rótulo já definido
-                        codigo_objeto[endereco_atual] = atoi(tabela_simbolos[j][1]);
-
-                    }else{
-                        // Rótulo ainda não definido
-                        // adiciona último endereço pendente no endereço atual e atualiza o endereço pendente
-                        int ultimo_endereco_pendente = atoi(tabela_simbolos[j][3]);
-                        codigo_objeto[endereco_atual] = ultimo_endereco_pendente;
-                        tabela_simbolos[j][3] = malloc(10 * sizeof(char));
-                        sprintf(tabela_simbolos[j][3], "%d", endereco_atual);
-
-                    }
-                    break;
-                }else if(tabela_simbolos[j][0] == NULL){
-                    break;
-                }
-            }
-            if(!operando_encontrado){
-                // Adicionar operando1 como pendente na tabela de símbolos
-                for(int j = 0; j < MAX_LINHAS; j++){
-                    if(tabela_simbolos[j][0] == NULL){
-                        // Encontrou uma linha vazia na tabela de símbolos
-                        tabela_simbolos[j][0] = strdup(operando1);
-                        tabela_simbolos[j][1] = strdup("-1");
-                        tabela_simbolos[j][2] = strdup("PEND");
-                        tabela_simbolos[j][3] = malloc(10 * sizeof(char));
-                        sprintf(tabela_simbolos[j][3], "%d", endereco_atual);
-                        break;
-                    }
-                }
-                codigo_objeto[endereco_atual] = -1; // Fim da lista de pendencias
-            }
-            endereco_atual++;
-        }
-
-
-        if(operando2 != NULL && (strcmp(instrucao, "CONST") != 0) && (strcmp(instrucao, "SPACE") != 0)){
-            // Verificar se o operando2 é um rótulo
-            int operando_encontrado = 0;
-            for(int j = 0; j < MAX_LINHAS && tabela_simbolos[j][0] != NULL; j++){
-                if(strcmp(tabela_simbolos[j][0], operando2) == 0){
-                    // Operando1 encontrado na tabela de símbolos
-                    operando_encontrado = 1;
-
-                    if(strcmp(tabela_simbolos[j][2], "SIM") == 0){
-                        // Rótulo já definido
-                        codigo_objeto[endereco_atual] = atoi(tabela_simbolos[j][1]);
-
-                    }else{
-                        // Rótulo ainda não definido
-                        // adiciona último endereço pendente no endereço atual e atualiza o endereço pendente
-                        int ultimo_endereco_pendente = atoi(tabela_simbolos[j][3]);
-                        codigo_objeto[endereco_atual] = ultimo_endereco_pendente;
-                        tabela_simbolos[j][3] = malloc(10 * sizeof(char));
-                        sprintf(tabela_simbolos[j][3], "%d", endereco_atual);
-
-                    }
-                    break;
-                }else if(tabela_simbolos[j][0] == NULL){
-                    break;
-                }
-            }
-            if(!operando_encontrado){
-                // Adicionar operando2 como pendente na tabela de símbolos
-                for(int j = 0; j < MAX_LINHAS; j++){
-                    if(tabela_simbolos[j][0] == NULL){
-                        // Encontrou uma linha vazia na tabela de símbolos
-                        tabela_simbolos[j][0] = strdup(operando2);
-                        tabela_simbolos[j][1] = strdup("-1");
-                        tabela_simbolos[j][2] = strdup("PEND");
-                        tabela_simbolos[j][3] = malloc(10 * sizeof(char));
-                        sprintf(tabela_simbolos[j][3], "%d", endereco_atual);
-                        break;
-                    }
-                }
-                codigo_objeto[endereco_atual] = -1; // Fim da lista de pendencias
-            }
-            endereco_atual++;
-        }
-    }
-    // imprimir o código objeto em um arquivo .o1
-    imprimeArquivoObjeto(codigo_objeto, endereco_atual);
-}
-
-
-
-
-// Remover se houver mais de um espaco/tab/quebra de linha
-char *limparEspaco(char *arquivo_pre){
-    int i = 0, j = 0;
-    int tamanho = strlen(arquivo_pre);
-    char *arquivoLimpo = (char *) malloc(tamanho + 1);
-
-    if(!arquivoLimpo) return NULL;
-
-    // Verifica se o caractere anterior fazia parte de uma palavra
-    int dentroDePalavra = 0;
-    // Mantem as linhas só se preocupando em remover os espaços em excesso
-    int ultimaFoiQuebra = 0;
-
-    while(arquivo_pre[i] != '\0'){
-        if(arquivo_pre[i] == ' ' || arquivo_pre[i] == '\t'){
-            if(dentroDePalavra){
-                arquivoLimpo[j++] = ' ';
-                dentroDePalavra = 0;
-            }
-        }
-        else if(arquivo_pre[i] == '\n' || arquivo_pre[i] == '\r'){
-            if(!ultimaFoiQuebra){
-                arquivoLimpo[j++] = '\n';
-                ultimaFoiQuebra = 1;
-                dentroDePalavra = 0;
-            }
-        }
-        else{
-            arquivoLimpo[j++] = arquivo_pre[i];
-            dentroDePalavra = 1;
-            ultimaFoiQuebra = 0;
-        }
-        i++;
-    }
-
-    // Remove espaço no final do arquivo, se tiver
-    if(j > 0 && (arquivoLimpo[j - 1] == ' ' || arquivoLimpo[j - 1] == '\n'))
-        j--;
-
-    arquivoLimpo[j] = '\0';
-    return arquivoLimpo;
-}
-
-char *abreArquivo(char *nomeArquivo){
-    FILE *arquivo = fopen(nomeArquivo, "r");
-
-    if(arquivo == NULL){
-        perror("Erro ao abrir o arquivo");
-        return NULL;
-    }
-
-    if(fseek(arquivo, 0, SEEK_END) != 0){
-        perror("Erro ao buscar o final do arquivo");
-        fclose(arquivo);
-        return NULL;
-    }
-    long tamanho = ftell(arquivo);
-    if(tamanho < 0){
-        perror("Erro ao obter o tamanho do arquivo");
-        fclose(arquivo);
-        return NULL;
-    }
-    rewind(arquivo);
-
-    char *conteudo = (char *)malloc(sizeof(char) * (tamanho + 1)); // Aloca memória para o conteúdo do arquivo
-    if (conteudo == NULL){
-        printf("Erro ao alocar memória\n");
-        fclose(arquivo);
-        return NULL;
-    }
-
-    size_t lidos = fread(conteudo, 1, (size_t)tamanho, arquivo);
-    conteudo[lidos] = '\0'; // Adiciona o caractere nulo ao final da string
-    fclose(arquivo);
-    return conteudo;
-}
-
-void converterMinusculo(char *arquivo){
-    for(int i = 0; arquivo[i] != '\0'; i++)
-        arquivo[i] = tolower(arquivo[i]);
-}
 
 int main(void){
     char *conteudo = abreArquivo("output.pre");
@@ -418,8 +413,8 @@ int main(void){
         }
         printf("\n");
     }
-/*
+
+    printf("\n");
     passagemUnica(tokens); // .o1 (pendências ainda não resolvidas)
     return 0;
-    */
 }
