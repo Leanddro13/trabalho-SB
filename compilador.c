@@ -1,3 +1,28 @@
+/* INTRUÇÕES REALIZADAS NESTE ARQUIVO:
+    1. Abrir o arquivo .pre gerado no pré-processamento e retornar um vetor de strings com o conteúdo do arquivo
+    2. Converter todo o conteúdo do arquivo para minúsculo e retornar um vetor de strings
+    3. Remover espaços, tabs e quebras de linha em excesso e retornar um vetor de strings
+    4. Separar os tokens do arquivo e retornar uma tabela de tokens
+    5. Realizar a passagem única
+        5.1. Criar uma tabela de definições (tabela_definicao) composta por 0 -> rótulo, 1 -> endereço do rótulo, 2 -> status (D - definido, P - pendente), 3 -> última pendência
+        5.2. Definir o valor das instruções e diretivas
+        5.3 Armazenas os respectivos endereços no vetor codigo_objeto
+    6. Gerar o arquivo objeto .o1 a partir do vetor codigo_objeto
+
+
+    O QUE AINDA FALTA SER FEITO:
+    - Tratamento de erros:
+        * Encontrar possíveis erros no arquivo .pre
+        * Armazenar erros encontradas em um vetor(linha do erro no arquivo .pre, tipo de erro)
+    - Resolver lista de pendências
+        * Ao final do código, pegar a tabela de definições e
+        todos os rótulos que não tirevem -1 na lista de pendencias,
+        tem que percorrer o vetor codigo_objeto e substituir pelo
+        endereço correto.
+    - Gerar o arquivo de saída .02 com lista de pendências resolvida
+    - Passar o simulador
+*/
+
 #include<stdio.h>
 #include<stdlib.h>
 #include<ctype.h>
