@@ -38,8 +38,8 @@ const char *tabela_intrucoes_lower[MAX_OPCODES] = {
     "stop"
 };
 const char *tabela_diretivas[] = {
-    "SPACE",
-    "CONST",
+    "space",
+    "const",
 };
 
 void imprimeArquivoObjeto(int *codigo_objeto, int tamanho){
@@ -49,8 +49,10 @@ void imprimeArquivoObjeto(int *codigo_objeto, int tamanho){
         return;
     }
     for(int i = 0; i < tamanho; i++){
-        fprintf(arquivo_objeto, "%d\n", codigo_objeto[i]);
+        if(i == tamanho - 1) fprintf(arquivo_objeto, "%d", codigo_objeto[i]);
+        else fprintf(arquivo_objeto, "%d ", codigo_objeto[i]);
     }
+
     fclose(arquivo_objeto);
 }
 
@@ -69,12 +71,22 @@ void passagemUnica(char ***tabela_tokenizada){
         // Verifica se o token existe
         if (token && tabela_definicao){
             //Procura na tabela de definições
+            rotulo_definido = 0;
             for(linha = 0; tabela_definicao[linha]; linha++){
                 if(strcmp(tabela_definicao[linha][0], token) == 0){
-                    // Rótulo já existe
-                    rotulo_definido = 1;
-                    printf("Erro: rótulo '%s' já definido\n", token);
-                    break;
+                    if(strcmp(tabela_definicao[linha][2], "P") == 0){
+                        // Rótulo pendente, agora definido
+                        tabela_definicao[linha][2] = strdup("S"); // Definido
+                        tabela_definicao[linha][1] = malloc(5 * sizeof(char));
+                        sprintf(tabela_definicao[linha][1], "%d", endereco_atual); // Endereço
+                        rotulo_definido = 1;
+                        break;
+                    }else{
+                        // Rótulo já existe
+                        rotulo_definido = 1;
+                        printf("Erro: rótulo '%s' já definido\n", token);
+                        break;
+                    }
                 }
             }
             if(!rotulo_definido){
@@ -104,6 +116,7 @@ void passagemUnica(char ***tabela_tokenizada){
 
         // Verifica a instrução
         token = tabela_tokenizada[lin_atual][1];
+        end_encontrado = 0;
         for(int i = 0; i < MAX_OPCODES; i++){
             if(token != NULL && strcmp(token, tabela_intrucoes_lower[i]) == 0){
                 // Instrução encontrada
@@ -114,12 +127,12 @@ void passagemUnica(char ***tabela_tokenizada){
                 break;
             }
         }
-        if(!end_encontrado && strcmp(token, "CONST") == 0){
+        if(!end_encontrado && strcmp(token, "const") == 0){
             // Diretiva CONST
             codigo_objeto = realloc(codigo_objeto, sizeof(int) * (endereco_atual + 1));
             codigo_objeto[endereco_atual] = atoi(tabela_tokenizada[lin_atual][2]); // Valor constante
             endereco_atual++;
-        }else if(!end_encontrado && strcmp(token, "SPACE") == 0){
+        }else if(!end_encontrado && strcmp(token, "space") == 0){
             // Diretiva SPACE
             // Se houver um operando, usa seu valor como quantidade; caso contrário, reserva 1 posição
             op_space = tabela_tokenizada[lin_atual][2];
@@ -141,7 +154,7 @@ void passagemUnica(char ***tabela_tokenizada){
 
         // Verifica os operandos
         for(int i = 2; i <=3; i++){
-            if(tabela_tokenizada[lin_atual][i] == NULL) continue;
+            if(tabela_tokenizada[lin_atual][i] == NULL || strcmp(tabela_tokenizada[lin_atual][1], "const") == 0 || strcmp(tabela_tokenizada[lin_atual][1], "space") == 0) continue;
             operando_encontrado = 0;
             token = tabela_tokenizada[lin_atual][i];
             if(tabela_definicao){
@@ -197,11 +210,14 @@ void passagemUnica(char ***tabela_tokenizada){
         }
         lin_atual++;
     }
+    /*
     // imprimir o código objeto em um arquivo .o1
     printf("____________________ codigo objeto gerado ____________________\n");
     for(int i = 0; i < endereco_atual; i++){
         printf("%d\n", codigo_objeto[i]);
     }
+        */
+    imprimeArquivoObjeto(codigo_objeto, endereco_atual);
 }
 
 // Remover se houver mais de um espaco/tab/quebra de linha
