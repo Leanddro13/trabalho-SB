@@ -24,10 +24,10 @@
 
 #define MAX_LINHAS 1000
 #define MAX_OPCODES 14
-const char *tabela_intrucoes[MAX_OPCODES] = {
+const char *tabela_instrucoes[MAX_OPCODES] = {
     "add",
     "sub",
-    "mul",
+    "mult",
     "div",
     "jmp",
     "jmpn",
@@ -135,7 +135,7 @@ void passagemUnica(char ***tabela_tokenizada){
         token = tabela_tokenizada[lin_atual][1];
         end_encontrado = 0;
         for(int i = 0; i < MAX_OPCODES; i++){
-            if(token != NULL && strcmp(token, tabela_intrucoes[i]) == 0){
+            if(token != NULL && strcmp(token, tabela_instrucoes[i]) == 0){
                 // Instrução encontrada
                 codigo_objeto1 = realloc(codigo_objeto1, sizeof(int) * (endereco_atual + 1));
                 codigo_objeto1[endereco_atual] = i+1;
@@ -427,7 +427,7 @@ char ***separaTokens(char *arquivo_pre){
 
 
 int main(void){
-    char *conteudo = abreArquivo("output.pre");
+    char *conteudo = abreArquivo("saida.pre");
     if(conteudo == NULL){
         return 1;
     }
