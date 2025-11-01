@@ -33,7 +33,7 @@
 const char *tabela_instrucoes_upper[MAX_OPCODES][2] = {
     {"ADD", "1"},
     {"SUB", "2"},
-    {"MUL", "3"},
+    {"MULT", "3"},
     {"DIV", "4"},
     {"JMP", "5"},
     {"JMPN", "6"},
@@ -49,7 +49,7 @@ const char *tabela_instrucoes_upper[MAX_OPCODES][2] = {
 const char *tabela_instrucoes_lower[MAX_OPCODES] = {
     "add",
     "sub",
-    "mul",
+    "mult",
     "div",
     "jmp",
     "jmpn",
@@ -418,7 +418,7 @@ char ***separaTokens(char *arquivo_pre){
 
 
 int main(void){
-    char *conteudo = abreArquivo("output.pre");
+    char *conteudo = abreArquivo("saida.pre");
     if(conteudo == NULL){
         return 1;
     }
