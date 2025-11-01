@@ -14,12 +14,6 @@
     - Tratamento de erros:
         * Encontrar possíveis erros no arquivo .pre
         * Armazenar erros encontradas em um vetor(linha do erro no arquivo .pre, tipo de erro)
-    - Resolver lista de pendências
-        * Ao final do código, pegar a tabela de definições e
-        todos os rótulos que não tirevem -1 na lista de pendencias,
-        tem que percorrer o vetor codigo_objeto e substituir pelo
-        endereço correto.
-    - Gerar o arquivo de saída .02 com lista de pendências resolvida
     - Passar o simulador
 */
 
@@ -30,23 +24,7 @@
 
 #define MAX_LINHAS 1000
 #define MAX_OPCODES 14
-const char *tabela_instrucoes_upper[MAX_OPCODES][2] = {
-    {"ADD", "1"},
-    {"SUB", "2"},
-    {"MUL", "3"},
-    {"DIV", "4"},
-    {"JMP", "5"},
-    {"JMPN", "6"},
-    {"JMPP", "7"},
-    {"JMPZ", "8"},
-    {"COPY", "9"},
-    {"LOAD", "10"},
-    {"STORE", "11"},
-    {"INPUT", "12"},
-    {"OUTPUT", "13"},
-    {"STOP", "14"}
-};
-const char *tabela_instrucoes_lower[MAX_OPCODES] = {
+const char *tabela_intrucoes[MAX_OPCODES] = {
     "add",
     "sub",
     "mul",
@@ -67,8 +45,8 @@ const char *tabela_diretivas[] = {
     "const",
 };
 
-void imprimeArquivoObjeto(int *codigo_objeto, int tamanho){
-    FILE *arquivo_objeto = fopen("output.o1", "w");
+void imprimeArquivoObjeto(int *codigo_objeto, int tamanho, char *nome_arquivo){
+    FILE *arquivo_objeto = fopen(nome_arquivo, "w");
     if(!arquivo_objeto){
         printf("Erro ao criar o arquivo objeto\n");
         return;
@@ -81,11 +59,24 @@ void imprimeArquivoObjeto(int *codigo_objeto, int tamanho){
     fclose(arquivo_objeto);
 }
 
+void resolvePendencias(char *rotulo, int endereco, char* ultima_pendencia , int *codigo_objeto){
+    // Percorre a lista de pendências
+    int pendencia = atoi(ultima_pendencia);
+    int proxima_pendencia;
+    while(pendencia != -1){
+        // Pega a próxima pendência
+        proxima_pendencia = codigo_objeto[pendencia];
+        // Atualiza o código objeto no endereço da última pendência
+        codigo_objeto[pendencia] = endereco;
+        pendencia = proxima_pendencia;
+    }
+}
+
 // Passagem única
 void passagemUnica(char ***tabela_tokenizada){
     // Variáveis
     char *token = NULL, ***tabela_definicao = NULL; // Rótulo, Endereço
-    int * codigo_objeto = NULL;
+    int * codigo_objeto1 = NULL, *codigo_objeto2 = NULL;
     int lin_atual = 0, rotulo_definido = 0, linha = 0, endereco_atual = 0, end_encontrado = 0;
     int operando_encontrado = 0;
     char *op_space, *op_const;
@@ -105,6 +96,7 @@ void passagemUnica(char ***tabela_tokenizada){
                         tabela_definicao[linha][1] = malloc(5 * sizeof(char));
                         sprintf(tabela_definicao[linha][1], "%d", endereco_atual); // Endereço
                         rotulo_definido = 1;
+                        resolvePendencias(token, endereco_atual, tabela_definicao[linha][3], codigo_objeto2);
                         break;
                     }else{
                         // Rótulo já existe
@@ -143,10 +135,12 @@ void passagemUnica(char ***tabela_tokenizada){
         token = tabela_tokenizada[lin_atual][1];
         end_encontrado = 0;
         for(int i = 0; i < MAX_OPCODES; i++){
-            if(token != NULL && strcmp(token, tabela_instrucoes_lower[i]) == 0){
+            if(token != NULL && strcmp(token, tabela_intrucoes[i]) == 0){
                 // Instrução encontrada
-                codigo_objeto = realloc(codigo_objeto, sizeof(int) * (endereco_atual + 1));
-                codigo_objeto[endereco_atual] = i+1;
+                codigo_objeto1 = realloc(codigo_objeto1, sizeof(int) * (endereco_atual + 1));
+                codigo_objeto1[endereco_atual] = i+1;
+                codigo_objeto2 = realloc(codigo_objeto2, sizeof(int) * (endereco_atual + 1));
+                codigo_objeto2[endereco_atual] = i+1;
                 endereco_atual++;
                 end_encontrado = 1;
                 break;
@@ -154,8 +148,10 @@ void passagemUnica(char ***tabela_tokenizada){
         }
         if(!end_encontrado && strcmp(token, "const") == 0){
             // Diretiva CONST
-            codigo_objeto = realloc(codigo_objeto, sizeof(int) * (endereco_atual + 1));
-            codigo_objeto[endereco_atual] = atoi(tabela_tokenizada[lin_atual][2]); // Valor constante
+            codigo_objeto1 = realloc(codigo_objeto1, sizeof(int) * (endereco_atual + 1));
+            codigo_objeto1[endereco_atual] = atoi(tabela_tokenizada[lin_atual][2]); // Valor constante
+            codigo_objeto2 = realloc(codigo_objeto2, sizeof(int) * (endereco_atual + 1));
+            codigo_objeto2[endereco_atual] = atoi(tabela_tokenizada[lin_atual][2]); // Valor constante
             endereco_atual++;
         }else if(!end_encontrado && strcmp(token, "space") == 0){
             // Diretiva SPACE
@@ -167,8 +163,10 @@ void passagemUnica(char ***tabela_tokenizada){
                 if(valor > 0) quantidade = valor;
             }
             for(int i = 0; i < quantidade; i++){
-                codigo_objeto = realloc(codigo_objeto, sizeof(int) * (endereco_atual + 1));
-                codigo_objeto[endereco_atual] = 0; // Espaço reservado
+                codigo_objeto1 = realloc(codigo_objeto1, sizeof(int) * (endereco_atual + 1));
+                codigo_objeto1[endereco_atual] = 0; // Espaço reservado
+                codigo_objeto2 = realloc(codigo_objeto2, sizeof(int) * (endereco_atual + 1));
+                codigo_objeto2[endereco_atual] = 0; // Espaço reservado
                 endereco_atual++;
             }
         }else if(!end_encontrado){
@@ -191,14 +189,18 @@ void passagemUnica(char ***tabela_tokenizada){
                         operando_encontrado = 1;
                         if(strcmp(tabela_definicao[linha][2], "S") == 0){
                             // Rótulo já definido
-                            codigo_objeto = realloc(codigo_objeto, sizeof(int) * (endereco_atual + 1));
-                            codigo_objeto[endereco_atual] = atoi(tabela_definicao[linha][1]);
+                            codigo_objeto1 = realloc(codigo_objeto1, sizeof(int) * (endereco_atual + 1));
+                            codigo_objeto1[endereco_atual] = atoi(tabela_definicao[linha][1]);
+                            codigo_objeto2 = realloc(codigo_objeto2, sizeof(int) * (endereco_atual + 1));
+                            codigo_objeto2[endereco_atual] = atoi(tabela_definicao[linha][1]);
                         }else{
                             // Rótulo ainda não definido
                             // adiciona último endereço pendente no endereço atual e atualiza o endereço pendente
                             int ultimo_endereco_pendente = atoi(tabela_definicao[linha][3]);
-                            codigo_objeto = realloc(codigo_objeto, sizeof(int) * (endereco_atual + 1));
-                            codigo_objeto[endereco_atual] = ultimo_endereco_pendente;
+                            codigo_objeto1 = realloc(codigo_objeto1, sizeof(int) * (endereco_atual + 1));
+                            codigo_objeto1[endereco_atual] = ultimo_endereco_pendente;
+                            codigo_objeto2 = realloc(codigo_objeto2, sizeof(int) * (endereco_atual + 1));
+                            codigo_objeto2[endereco_atual] = ultimo_endereco_pendente;
                             tabela_definicao[linha][3] = malloc(5 * sizeof(char));
                             sprintf(tabela_definicao[linha][3], "%d", endereco_atual);
                         }
@@ -215,8 +217,10 @@ void passagemUnica(char ***tabela_tokenizada){
                     tabela_definicao[linha][3] = malloc(5 * sizeof(char));
                     sprintf(tabela_definicao[linha][3], "%d", endereco_atual); // Última pendência
                     tabela_definicao[linha + 1] = NULL; // Marca o fim da tabela
-                    codigo_objeto = realloc(codigo_objeto, sizeof(int) * (endereco_atual + 1));
-                    codigo_objeto[endereco_atual] = -1; // Fim da lista de pendencias
+                    codigo_objeto1 = realloc(codigo_objeto1, sizeof(int) * (endereco_atual + 1));
+                    codigo_objeto1[endereco_atual] = -1; // Fim da lista de pendencias
+                    codigo_objeto2 = realloc(codigo_objeto2, sizeof(int) * (endereco_atual + 1));
+                    codigo_objeto2[endereco_atual] = -1; // Fim da lista
                 }
             }else{
                 // Primeira vez que adiciona um operando pendente
@@ -228,8 +232,10 @@ void passagemUnica(char ***tabela_tokenizada){
                 tabela_definicao[0][3] = malloc(5 * sizeof(char));
                 sprintf(tabela_definicao[0][3], "%d", endereco_atual); // Última pendência
                 tabela_definicao[1] = NULL; // Marca o fim da tabela
-                codigo_objeto = realloc(codigo_objeto, sizeof(int) * (endereco_atual + 1));
-                codigo_objeto[endereco_atual] = -1; // Fim da lista de pendencias
+                codigo_objeto1 = realloc(codigo_objeto1, sizeof(int) * (endereco_atual + 1));
+                codigo_objeto1[endereco_atual] = -1; // Fim da lista de pendencias
+                codigo_objeto2 = realloc(codigo_objeto2, sizeof(int) * (endereco_atual + 1));
+                codigo_objeto2[endereco_atual] = -1; // Fim da lista
             }
             endereco_atual++;
         }
@@ -242,7 +248,10 @@ void passagemUnica(char ***tabela_tokenizada){
         printf("%d\n", codigo_objeto[i]);
     }
         */
-    imprimeArquivoObjeto(codigo_objeto, endereco_atual);
+    // imprimir o código objeto em um arquivo .o1
+    imprimeArquivoObjeto(codigo_objeto1, endereco_atual, "output.o1");
+    // imprimir o código objeto em um arquivo .o2
+    imprimeArquivoObjeto(codigo_objeto2, endereco_atual, "output.o2");
 }
 
 // Remover se houver mais de um espaco/tab/quebra de linha
