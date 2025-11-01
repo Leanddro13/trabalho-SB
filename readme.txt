@@ -6,17 +6,23 @@ Nome do Grupo:
 Como rodar:
 
 No Linux:
-    Para rodar o pré-processamento digite:
-    gcc preprocessamento.c -o preproc && ./preproc
-
-    Para rodar o compilador digite:
+    Para rodar o pré-processamento e o compilador, digite:
     gcc preprocessamento.c -o preproc && ./preproc && gcc compilador.c -o compilador && ./compilador arquivo.asm
 
-No Windows (CodeBlocks ou terminal):
-    Para rodar o pré-processamento digite:
+    Para rodar apenas o pré-processamento digite:
     gcc preprocessamento.c -o preproc && ./preproc
 
-    Para rodar o compilador digite:
+    Para rodar apenas o compilador digite:
+    gcc compilador.c -o compilador && ./compilador arquivo.asm
+
+No Windows (CodeBlocks ou terminal):
+    Para rodar o pré-processamento e o compilador, digite:
+    gcc preprocessamento.c -o preproc && ./preproc && gcc compilador.c -o compilador.exe && compilador.exe arquivo.asm
+
+    Para rodar apenas o pré-processamento digite:
+    gcc preprocessamento.c -o preproc && ./preproc
+
+    Para rodar apenas o compilador digite:
     gcc compilador.c -o compilador.exe && compilador.exe arquivo.asm
 
 Todos os arquivos (.asm, .pre, .o1, .o2) devem estar na mesma pasta.
