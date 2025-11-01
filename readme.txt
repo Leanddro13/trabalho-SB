@@ -6,13 +6,8 @@ Nome do Grupo:
 Como rodar:
 
 No Linux:
-    Para rodar o pré-processamento e o compilador, digite:
-    gcc preprocessamento.c -o preproc && ./preproc && gcc compilador.c -o compilador && ./compilador arquivo.asm
+    Para rodar o compilador, digite:
+    gcc -o compilador compilador.c && ./compilador entrada.asm
 
-    Para rodar APENAS o pré-processamento digite:
-    gcc preprocessamento.c -o preproc && ./preproc
-
-    Para rodar APENAS o compilador digite:
-    gcc compilador.c -o compilador && ./compilador arquivo.asm
 
 Todos os arquivos (.asm, .pre, .o1, .o2) devem estar na mesma pasta.
